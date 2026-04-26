@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- 
+  ===========================================================
+  PROJECT: Anas FPV Drone
+  AUTHOR:  Anashazz
+  VERSION: 1.0.0 (2026)
+  
+  LICENSE: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 
+           International (CC BY-NC-SA 4.0)
+           
+  MODDING RULES are listed in LICENSE.txt
+  ===========================================================
+-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="author" content="Anashazz">
+    <meta name="license" content="CC BY-NC-SA 4.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anas FPV Drone</title>
+    <script src="three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Consolas', 'Courier New', monospace; background: #000510; color: #00d2ff; }
+        
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,20,50,0.9) 0%, rgba(0,5,15,1) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            cursor: default;
+        }
+
+        #overlay h1 { font-size: 28px; margin-bottom: 20px; letter-spacing: 4px; color: #00d2ff; text-shadow: 0 0 15px #00d2ff; }
+        
+        .settings-box {
+            background: rgba(0, 40, 80, 0.4);
+            padding: 25px;
+            border: 1px solid #00d2ff;
+            border-radius: 8px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            width: 380px;
+        }
+
+        .settings-box p { margin: 15px 0 5px 0; color: #66a; font-size: 14px; text-transform: uppercase; }
+
+        select {
+            background: #000510;
+            color: #00d2ff;
+            border: 1px solid #00d2ff;
+            padding: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        #start-btn {
+            background: #00d2ff;
+            color: #000510;
+            border: none;
+            padding: 12px 40px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            width: 100%;
+        }
+
+        #start-btn:hover {
+            background: #fff;
+            box-shadow: 0 0 20px #00d2ff;
+            transform: scale(1.02);
+        }
+
+        .osd-top {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: rgba(0, 20, 50, 0.6);
+            padding: 12px;
+            border: 1px solid #00d2ff;
+            font-size: 14px;
+            min-width: 150px;
+        }
+
+        .osd-bottom {
+            position: absolute;
+            bottom: 80px;
+            left: 50px;
+            right: 50px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 16px;
+            text-shadow: 0 0 5px #000, 0 0 10px #00d2ff;
+        }
+
+        .crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(0, 210, 255, 0.6);
+            font-size: 40px;
+        }
+
+        #controls-hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0, 5, 20, 0.95);
+            color: #66a;
+            padding: 10px 0;
+            font-size: 12px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            border-top: 1px solid #004466;
+            z-index: 10;
+        }
+        
+        .mode-label { color: #001; background: #00d2ff; padding: 2px 8px; border-radius: 2px; font-weight: bold; }
+        b { color: #00d2ff; }
+        .warning { color: #ff3333; font-size: 10px; margin-top: 10px; display: block; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <h1>ANAS FPV DRONE</h1>
+        <div class="settings-box">
+            <p>Select Terrain Quality</p>
+            <select id="quality-selector">
+                <option value="32">32</option>
+                <option value="64">64</option>
+                <option value="128" selected>128</option>
+                <option value="256">256</option>
+                <option value="512">512</option>
+                <option value="1024">1024</option>
+                <option value="2048">2048</option>
+                <option value="4096">4096</option>
+                <option value="8192">8192</option>
+            </select>
+            
+            <button id="start-btn">START</button>
+            <span class="warning">
+                Note: Defaulting to 128 polygons.<br>
+                2048 and Above requires high system memory & stable GPU.
+            </span>
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <div class="osd-top">
+            <span class="mode-label">Tab</span><br>
+            FPS: <span id="fps-meter">0</span><br>
+            PITCH: <span id="rot-x">0</span>°<br>
+            YAW: <span id="rot-y">0</span>°<br>
+            POLY: <span id="poly-display">128</span>
+        </div>
+        <div class="crosshair">+</div>
+        <div class="osd-bottom">
+            <span>VELOCITY: <span id="cam-vel">0</span> KM/S</span>
+            <span>ALTITUDE: <span id="cam-alt">0</span> KM</span>
+        </div>
+    </div>
+
+    <div id="controls-hint">
+        <div>Move: <b>W/A/S/D</b></div>
+        <div>Vertical: <b>Space / Shift</b></div>
+        <div>Look: <b>Mouse</b></div>
+        <div>Reset: <b>R</b></div>
+    </div>
+
+    <script>
+        let scene, renderer, camera;
+        let clock = new THREE.Clock();
+        const keys = {};
+        let terrainMesh, wireframeMesh;
+        
+        let frameCount = 0;
+        let lastTime = performance.now();
+        const fpsDisplay = document.getElementById('fps-meter');
+
+        const camState = {
+            moveSpeed: 10000,      
+            acceleration: 0.08,    
+            lookSensitivity: 0.002,
+            velocity: new THREE.Vector3(),
+            pitch: 0,
+            yaw: 0
+        };
+
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+        const qualitySelector = document.getElementById('quality-selector');
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000510);
+            scene.fog = new THREE.Fog(0x000510, 5000, 150000);
+
+            camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 1, 350000);
+            camera.position.set(0, 800, 1000);
+            camera.rotation.order = 'YXZ'; 
+            
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(1);
+            document.body.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0x003366, 0.8));
+            const sun = new THREE.DirectionalLight(0x00d2ff, 1.5);
+            sun.position.set(5000, 10000, 5000);
+            scene.add(sun);
+
+            startBtn.addEventListener('click', () => {
+                const segments = parseInt(qualitySelector.value);
+                setupQuality(segments);
+                document.body.requestPointerLock();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === document.body) {
+                    overlay.style.display = 'none';
+                } else {
+                    overlay.style.display = 'flex';
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement === document.body) {
+                    camState.yaw -= e.movementX * camState.lookSensitivity;
+                    camState.pitch -= e.movementY * camState.lookSensitivity;
+                    camState.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camState.pitch));
+                }
+            });
+
+            window.addEventListener('keydown', e => {
+                keys[e.code] = true;
+                if(e.code === 'KeyR') resetCam();
+            });
+            window.addEventListener('keyup', e => keys[e.code] = false);
+            window.addEventListener('resize', onWindowResize);
+
+            animate();
+        }
+
+        function setupQuality(segments) {
+            let worldSize = 250000;
+            document.getElementById('poly-display').innerText = segments;
+
+            if (terrainMesh) {
+                scene.remove(terrainMesh);
+                if (wireframeMesh) scene.remove(wireframeMesh);
+                terrainMesh.geometry.dispose();
+                if (wireframeMesh) wireframeMesh.geometry.dispose();
+            }
+
+            try {
+                createLevel(worldSize, segments);
+            } catch (e) {
+                console.warn("High-poly generation failed, attempting memory-safe fallback...");
+                try {
+                    createLevel(worldSize, 2048);
+                    document.getElementById('poly-display').innerText = "2048 (Safe Fallback)";
+                } catch (innerE) {
+                    createLevel(worldSize, 128);
+                    document.getElementById('poly-display').innerText = "128 (Emergency Fallback)";
+                }
+            }
+        }
+
+        function resetCam() {
+            camera.position.set(0, 800, 1000);
+            camState.pitch = 0;
+            camState.yaw = 0;
+            camState.velocity.set(0, 0, 0);
+        }
+
+        function getHeight(x, z) {
+            return (Math.sin(x * 0.0005) * Math.cos(z * 0.0005) * 600) + 
+                   (Math.sin(x * 0.002) * 150) + 
+                   (Math.cos(z * 0.001) * 200);
+        }
+
+        function createLevel(worldSize, segments) {
+            const terrainGeo = new THREE.PlaneBufferGeometry(worldSize, worldSize, segments, segments);
+            const vertices = terrainGeo.attributes.position.array;
+
+            for (let i = 0; i < vertices.length; i += 3) {
+                vertices[i + 2] = getHeight(vertices[i], vertices[i + 1]);
+            }
+            
+            terrainGeo.computeVertexNormals();
+            const terrainMat = new THREE.MeshPhongMaterial({ color: 0x001122, shininess: 10 });
+            terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+            terrainMesh.rotation.x = -Math.PI / 2;
+            scene.add(terrainMesh);
+
+            if (segments <= 512) {
+                wireframeMesh = new THREE.Mesh(
+                    terrainGeo,
+                    new THREE.MeshBasicMaterial({ color: 0x00d2ff, wireframe: true, transparent: true, opacity: 0.1 })
+                );
+                wireframeMesh.rotation.x = -Math.PI / 2;
+                wireframeMesh.position.y = 2; 
+                scene.add(wireframeMesh);
+            }
+
+            for(let i=0; i<100; i++) {
+                const gate = new THREE.Group();
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(120, 8, 8, 30),
+                    new THREE.MeshBasicMaterial({color: 0x00d2ff, transparent: true, opacity: 0.8})
+                );
+                gate.add(ring);
+                const gx = (Math.random()-0.5) * worldSize * 0.6;
+                const gz = (Math.random()-0.5) * worldSize * 0.6;
+                gate.position.set(gx, getHeight(gx, -gz) + 800, gz);
+                scene.add(gate);
+            }
+        }
+
+        function updateMovement(dt) {
+            const input = new THREE.Vector3();
+            if (keys['KeyW']) input.z -= 1;
+            if (keys['KeyS']) input.z += 1;
+            if (keys['KeyA']) input.x -= 1;
+            if (keys['KeyD']) input.x += 1;
+            if (keys['Space']) input.y += 1;
+            if (keys['ShiftLeft']) input.y -= 1;
+
+            if (input.length() > 0) input.normalize();
+
+            const moveDir = new THREE.Vector3();
+            const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(camState.pitch, camState.yaw, 0, 'YXZ'));
+            moveDir.copy(input).applyQuaternion(q);
+            
+            const targetVel = moveDir.multiplyScalar(camState.moveSpeed);
+            camState.velocity.lerp(targetVel, camState.acceleration);
+            
+            camera.position.add(camState.velocity.clone().multiplyScalar(dt));
+            camera.rotation.set(camState.pitch, camState.yaw, 0);
+
+            const terrainHeight = getHeight(camera.position.x, -camera.position.z);
+            if (camera.position.y < terrainHeight + 50) {
+                camera.position.y = terrainHeight + 50;
+                camState.velocity.y = Math.max(0, camState.velocity.y);
+            }
+
+            document.getElementById('rot-x').innerText = Math.round(camState.pitch * (180/Math.PI));
+            document.getElementById('rot-y').innerText = Math.round(camState.yaw * (180/Math.PI));
+            document.getElementById('cam-vel').innerText = (camState.velocity.length() / 1000).toFixed(2);
+            document.getElementById('cam-alt').innerText = (camera.position.y / 1000).toFixed(2);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.1);
+
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fpsDisplay.innerText = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            if (document.pointerLockElement === document.body) {
+                updateMovement(dt);
+            }
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
